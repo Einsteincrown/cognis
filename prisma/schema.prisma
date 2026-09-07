@@ -1,0 +1,104 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Venture {
+  id                   String       @id
+  name                 String
+  category             String
+  website              String?
+  description          String?
+  isDemo               Boolean      @default(false)
+  hasToken             Boolean      @default(false)
+  tokenSymbol          String?
+  tokenChainId         String?
+  tokenContractAddress String?
+  createdAt            DateTime     @default(now())
+  updatedAt            DateTime     @updatedAt
+  assessments          Assessment[]
+
+  @@index([name])
+}
+
+model Assessment {
+  id                String            @id
+  ventureId         String
+  stage             String            @default("Intake")
+  signalState       String            @default("Unclear")
+  status            String            @default("active")
+  ownerDisplayName  String?
+  committeeAt       DateTime?
+  committeeStatus   String?
+  committeeCondition String?
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+  venture           Venture           @relation(fields: [ventureId], references: [id], onDelete: Cascade)
+  domains           AssessmentDomain[]
+
+  @@index([ventureId, status, updatedAt])
+}
+
+model AssessmentDomain {
+  id           String              @id
+  assessmentId String
+  key          String
+  label        String
+  position     Int
+  status       String              @default("Not started")
+  blockerCount Int                 @default(0)
+  assessment   Assessment          @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+  questions    AssessmentQuestion[]
+
+  @@index([assessmentId, position])
+  @@unique([assessmentId, key])
+}
+
+model AssessmentQuestion {
+  id          String          @id
+  domainId    String
+  prompt      String
+  context     String
+  position    Int
+  state       String          @default("Suggested")
+  isBlocker   Boolean         @default(false)
+  binanceMode String?
+  tokenQuery  String?
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+  domain      AssessmentDomain @relation(fields: [domainId], references: [id], onDelete: Cascade)
+  response    AnalystResponse?
+  evidence    Evidence[]
+
+  @@index([domainId, position])
+}
+
+model AnalystResponse {
+  id         String             @id
+  questionId String             @unique
+  body       String
+  status     String             @default("Reviewed")
+  createdAt  DateTime           @default(now())
+  updatedAt  DateTime           @updatedAt
+  question   AssessmentQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
+}
+
+model Evidence {
+  id          String             @id
+  questionId  String
+  type        String
+  status      String             @default("ACTIVE")
+  content     String
+  sourceLabel String
+  sourceUrl   String?
+  requestedAt DateTime?
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+  question    AssessmentQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  @@index([questionId, createdAt])
+}
