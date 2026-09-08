@@ -18,6 +18,10 @@ const app = require('../api');
     assert.match(javascript.headers['content-type'], /javascript/);
     assert.doesNotMatch(javascript.text, /http:\/\/localhost/);
 
+    const favicon = await request(app).get('/favicon.svg');
+    assert.strictEqual(favicon.status, 200);
+    assert.match(favicon.headers['content-type'], /image\/svg\+xml/);
+
     const video = await request(app).get('/lantern_anticlockwise_rotation.mp4');
     assert.strictEqual(video.status, 200);
     assert.match(video.headers['content-type'], /video\/mp4/);
@@ -31,6 +35,7 @@ const app = require('../api');
     console.log('GET / 200 text/html');
     console.log('GET /styles.css 200 text/css');
     console.log('GET /app.js 200 application/javascript');
+    console.log('GET /favicon.svg 200 image/svg+xml');
     console.log('GET /lantern_anticlockwise_rotation.mp4 200 video/mp4');
     console.log('GET /api/health 200 application/json');
     console.log('VERCEL_STATIC_FRONTEND_AND_API_ENTRYPOINT_OK');

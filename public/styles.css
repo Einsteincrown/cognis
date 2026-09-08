@@ -70,6 +70,32 @@
 /* Every venture receives a visible, deterministic identity mark. */
 .venture-avatar{background:hsl(var(--avatar-hue,220) 54% 34%);box-shadow:inset 0 0 0 1px #ffffff24;color:#fff;font-family:var(--mono);font-size:10px;letter-spacing:.03em}
 
+/* Keep every Screening Queue column visible at compact desktop widths. */
+@media(max-width:1280px) and (min-width:681px){
+  .workspace-grid{grid-template-columns:minmax(0,1fr)}
+  .activity-panel{grid-template-columns:minmax(0,1.3fr) minmax(230px,.7fr)}
+  .activity-panel blockquote{display:none}
+  .workspace-stats{grid-template-columns:repeat(4,minmax(0,1fr))}
+  .workspace-stats>div{min-width:0;padding:12px}
+  .assessment-table{min-width:720px;table-layout:fixed}
+  .assessment-table th:nth-child(1){width:25%}
+  .assessment-table th:nth-child(2){width:14%}
+  .assessment-table th:nth-child(3){width:11%}
+  .assessment-table th:nth-child(4){width:14%}
+  .assessment-table th:nth-child(5){width:12%}
+  .assessment-table th:nth-child(6){width:13%}
+  .assessment-table th:nth-child(7){width:8%}
+  .assessment-table th:nth-child(8){width:3%}
+  .venture-cell{min-width:0}
+  .venture-cell strong,.venture-cell small{overflow-wrap:anywhere}
+  .evidence-meter{min-width:0}
+}
+
+@media(max-width:900px) and (min-width:681px){
+  .activity-panel{grid-template-columns:1fr}
+  .workspace-stats{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+
 /* Compact, centered FAQ frame */
 .faq-section{
   width:min(980px,calc(100% - 64px));

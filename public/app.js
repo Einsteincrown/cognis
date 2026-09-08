@@ -55,8 +55,37 @@ function renderQueueFromWorkspace() {
     const signalClass = signal === 'Caution' || signal === 'Unclear' ? 'signal-caution' : 'signal-positive';
     return `<tr class="assessment-row" data-assessment="${venture.id}" data-stage="${stage}" data-needs-review="${signal === 'Caution' || blockers > 0}"><td><div class="venture-cell"><span class="venture-avatar" style="--avatar-hue:${getVentureHue(venture.name)}" aria-hidden="true">${getVentureMonogram(venture.name)}</span><span><strong>${venture.name}</strong><small>${venture.category}</small></span></div></td><td>${venture.category}</td><td>${stage}</td><td><div class="evidence-meter"><strong>${assessment.progress || 0}%</strong><span class="meter"><i style="width:${assessment.progress || 0}%"></i></span></div></td><td><span class="signal-chip ${signalClass}">${signal}</span></td><td>Review assessment</td><td>Just now</td><td><button class="row-arrow" type="button" aria-label="Open ${venture.name} assessment">⋮</button></td></tr>`;
   }).join('');
+  updateQueueSummary();
   body.querySelectorAll('[data-assessment]').forEach((item) => item.addEventListener('click', openAssessment));
   applyQueueFilters();
+}
+
+function updateQueueSummary() {
+  if (!workspaceData) return;
+  const ventures = workspaceData.ventures || [];
+  const inProgress = ventures.filter(({ assessment }) => ['Questioning', 'Analysis'].includes(assessment?.stage)).length;
+  const counts = {
+    all: ventures.length,
+    review: workspaceData.summary?.needsReview || 0,
+    progress: inProgress,
+    committee: workspaceData.summary?.committeeReady || 0,
+  };
+
+  Object.entries(counts).forEach(([key, value]) => {
+    const node = document.querySelector(`[data-queue-count="${key}"]`);
+    if (node) node.textContent = String(value).padStart(2, '0');
+  });
+
+  const summaryCounts = {
+    active: workspaceData.summary?.activeAssessments || 0,
+    review: workspaceData.summary?.needsReview || 0,
+    committee: workspaceData.summary?.committeeReady || 0,
+    stale: workspaceData.summary?.staleEvidence || 0,
+  };
+  Object.entries(summaryCounts).forEach(([key, value]) => {
+    const node = document.querySelector(`[data-summary-count="${key}"]`);
+    if (node) node.textContent = value;
+  });
 }
 
 function applyQueueFilters() {
