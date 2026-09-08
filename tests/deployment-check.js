@@ -21,12 +21,19 @@ const app = require('../api');
     const video = await request(app).get('/lantern_anticlockwise_rotation.mp4');
     assert.strictEqual(video.status, 200);
     assert.match(video.headers['content-type'], /video\/mp4/);
+    assert.doesNotMatch(video.headers['content-type'], /text\/html/);
 
-    const health = await request(app).get('/health');
+    const health = await request(app).get('/api/health');
     assert.strictEqual(health.status, 200);
+    assert.match(health.headers['content-type'], /application\/json/);
     assert.strictEqual(health.body.ok, true);
 
-    console.log('VERCEL_ENTRYPOINT_AND_STATIC_ASSETS_OK');
+    console.log('GET / 200 text/html');
+    console.log('GET /styles.css 200 text/css');
+    console.log('GET /app.js 200 application/javascript');
+    console.log('GET /lantern_anticlockwise_rotation.mp4 200 video/mp4');
+    console.log('GET /api/health 200 application/json');
+    console.log('VERCEL_STATIC_FRONTEND_AND_API_ENTRYPOINT_OK');
   } catch (error) {
     console.error('DEPLOYMENT_CHECK_FAILED');
     console.error(error.stack || error.message);

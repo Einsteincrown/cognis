@@ -5,14 +5,17 @@ const binanceRoutes = require('./routes/binanceRoutes');
 const ventureRoutes = require('./routes/ventureRoutes');
 
 const app = express();
-const frontendRoot = path.join(__dirname, '..');
+const frontendRoot = path.join(__dirname, '..', 'public');
 
 app.use(cors());
 app.use(express.json({ limit: '1mb' }));
 
-app.get('/health', (req, res) => {
+const sendHealth = (req, res) => {
   res.json({ ok: true, service: 'cognis-binance-backend' });
-});
+};
+
+app.get('/health', sendHealth);
+app.get('/api/health', sendHealth);
 
 app.use('/api/binance', binanceRoutes);
 app.use('/api', ventureRoutes);
