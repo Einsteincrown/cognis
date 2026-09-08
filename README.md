@@ -430,6 +430,12 @@ npm install
 Set up the database:
 
 ```bash
+npm run setup:db -- "postgresql://USER:PASSWORD@HOST:5432/DATABASE?sslmode=require"
+```
+
+Or, if `.env` already contains a PostgreSQL `DATABASE_URL`:
+
+```bash
 npx prisma migrate deploy
 npx prisma db seed
 ```

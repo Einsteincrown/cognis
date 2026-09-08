@@ -8,6 +8,7 @@
     "test": "node tests/live-backend-check.js",
     "test:deployment": "node tests/deployment-check.js",
     "test:postgres": "node tests/postgres-integration-check.js",
+    "setup:db": "node scripts/setup-postgres.js",
     "postinstall": "prisma generate",
     "vercel-build": "prisma generate && prisma migrate deploy",
     "db:migrate": "prisma migrate deploy",
