@@ -302,6 +302,7 @@ router.post('/ventures/:ventureId/assessments', async (req, res, next) => {
             })),
           },
         },
+        include: includeAssessment,
       });
     });
     res.status(201).json(serializeAssessment(assessment));

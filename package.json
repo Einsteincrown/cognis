@@ -7,10 +7,12 @@
     "start": "node src/server.js",
     "test": "node tests/live-backend-check.js",
     "test:deployment": "node tests/deployment-check.js",
+    "test:postgres": "node tests/postgres-integration-check.js",
     "postinstall": "prisma generate",
+    "vercel-build": "prisma generate && prisma migrate deploy",
     "db:migrate": "prisma migrate deploy",
     "db:seed": "prisma db seed",
-    "db:migrate:intake": "prisma migrate dev --name add_venture_intake_fields"
+    "db:migrate:dev": "prisma migrate dev"
   },
   "keywords": [],
   "author": "",

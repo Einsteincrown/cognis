@@ -3,7 +3,7 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
@@ -26,50 +26,50 @@ model Venture {
 }
 
 model Assessment {
-  id                String            @id
-  ventureId         String
-  stage             String            @default("Intake")
-  signalState       String            @default("Unclear")
-  status            String            @default("active")
-  ownerDisplayName  String?
-  committeeAt       DateTime?
-  committeeStatus   String?
+  id                 String             @id
+  ventureId          String
+  stage              String             @default("Intake")
+  signalState        String             @default("Unclear")
+  status             String             @default("active")
+  ownerDisplayName   String?
+  committeeAt        DateTime?
+  committeeStatus    String?
   committeeCondition String?
-  createdAt         DateTime          @default(now())
-  updatedAt         DateTime          @updatedAt
-  venture           Venture           @relation(fields: [ventureId], references: [id], onDelete: Cascade)
-  domains           AssessmentDomain[]
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+  venture            Venture            @relation(fields: [ventureId], references: [id], onDelete: Cascade)
+  domains            AssessmentDomain[]
 
   @@index([ventureId, status, updatedAt])
 }
 
 model AssessmentDomain {
-  id           String              @id
+  id           String               @id
   assessmentId String
   key          String
   label        String
   position     Int
-  status       String              @default("Not started")
-  blockerCount Int                 @default(0)
-  assessment   Assessment          @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+  status       String               @default("Not started")
+  blockerCount Int                  @default(0)
+  assessment   Assessment           @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
   questions    AssessmentQuestion[]
 
-  @@index([assessmentId, position])
   @@unique([assessmentId, key])
+  @@index([assessmentId, position])
 }
 
 model AssessmentQuestion {
-  id          String          @id
+  id          String           @id
   domainId    String
   prompt      String
   context     String
   position    Int
-  state       String          @default("Suggested")
-  isBlocker   Boolean         @default(false)
+  state       String           @default("Suggested")
+  isBlocker   Boolean          @default(false)
   binanceMode String?
   tokenQuery  String?
-  createdAt   DateTime        @default(now())
-  updatedAt   DateTime        @updatedAt
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
   domain      AssessmentDomain @relation(fields: [domainId], references: [id], onDelete: Cascade)
   response    AnalystResponse?
   evidence    Evidence[]

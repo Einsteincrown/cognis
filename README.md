@@ -300,7 +300,7 @@ This venture can be used to demonstrate the complete Binance intelligence workfl
                 │                  │
                 ▼                  ▼
        ┌────────────────┐   ┌─────────────────┐
-       │ Prisma / SQLite│   │ Binance Services│
+       │Prisma/PostgreSQL│   │ Binance Services│
        │                │   │                 │
        │ Ventures       │   │ Token Info      │
        │ Assessments    │   │ Token Audit     │
@@ -350,7 +350,7 @@ This allows Cognis to maintain a structured history of the investment assessment
 ### Data
 
 - Prisma ORM
-- SQLite
+- PostgreSQL
 
 ### Market Intelligence
 
