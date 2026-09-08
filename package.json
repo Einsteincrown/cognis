@@ -6,6 +6,8 @@
   "scripts": {
     "start": "node src/server.js",
     "test": "node tests/live-backend-check.js",
+    "test:deployment": "node tests/deployment-check.js",
+    "postinstall": "prisma generate",
     "db:migrate": "prisma migrate deploy",
     "db:seed": "prisma db seed",
     "db:migrate:intake": "prisma migrate dev --name add_venture_intake_fields"
