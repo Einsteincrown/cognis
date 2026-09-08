@@ -8,6 +8,9 @@ const app = require('../api');
     assert.strictEqual(home.status, 200);
     assert.match(home.headers['content-type'], /text\/html/);
     assert.match(home.text, /Cognis/i);
+    assert.match(home.text, /https:\/\/x\.com\/__iamcrown/);
+    assert.match(home.text, /https:\/\/github\.com\/Einsteincrown\/cognis/);
+    assert.match(home.text, />Theme</);
 
     const css = await request(app).get('/styles.css');
     assert.strictEqual(css.status, 200);
@@ -32,12 +35,19 @@ const app = require('../api');
     assert.match(health.headers['content-type'], /application\/json/);
     assert.strictEqual(health.body.ok, true);
 
+    for (const resource of ['/README.md', '/venture-diagnostic-plan.md', '/DESIGN.md']) {
+      const resourceResponse = await request(app).get(resource);
+      assert.strictEqual(resourceResponse.status, 200, `${resource} was not served`);
+      assert.doesNotMatch(resourceResponse.headers['content-type'], /text\/html/);
+    }
+
     console.log('GET / 200 text/html');
     console.log('GET /styles.css 200 text/css');
     console.log('GET /app.js 200 application/javascript');
     console.log('GET /favicon.svg 200 image/svg+xml');
     console.log('GET /lantern_anticlockwise_rotation.mp4 200 video/mp4');
     console.log('GET /api/health 200 application/json');
+    console.log('GET documentation resources 200 non-HTML');
     console.log('VERCEL_STATIC_FRONTEND_AND_API_ENTRYPOINT_OK');
   } catch (error) {
     console.error('DEPLOYMENT_CHECK_FAILED');
