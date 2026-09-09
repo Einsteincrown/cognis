@@ -5,6 +5,7 @@ const { spawnSync } = require('child_process');
 const root = path.resolve(__dirname, '..');
 const envPath = path.join(root, '.env');
 const schemaPath = path.join(root, 'prisma', 'schema.prisma');
+const placeholderParts = ['USER', 'PASSWORD', 'HOST', 'POOLER_HOST', 'DATABASE'];
 
 function fail(message) {
   console.error(message);
@@ -15,44 +16,61 @@ function isPlaceholderDatabaseUrl(url) {
   try {
     const parsed = new URL(url);
     const database = parsed.pathname.replace(/^\//, '');
-    return [parsed.username, parsed.password, parsed.hostname, database].some((part) =>
-      ['USER', 'PASSWORD', 'HOST', 'DATABASE'].includes(decodeURIComponent(part || '').toUpperCase())
-    );
+    return [parsed.username, parsed.password, parsed.hostname, database].some((part) => {
+      const normalized = decodeURIComponent(part || '').toUpperCase();
+      return placeholderParts.includes(normalized) || normalized.includes('POOLER_HOST');
+    });
   } catch (error) {
     return false;
   }
 }
 
-function resolveDatabaseUrl() {
-  const explicitArg = process.argv.slice(2).find((arg) => arg && !arg.startsWith('--'));
-  const envFile = fs.existsSync(envPath) ? fs.readFileSync(envPath, 'utf8') : '';
-  const envFileMatch = envFile.match(/^DATABASE_URL=(?:"([^"]*)"|'([^']*)'|([^\r\n]*))/m);
-  const envFileUrl = envFileMatch ? (envFileMatch[1] || envFileMatch[2] || envFileMatch[3] || '').trim() : '';
-  const url = explicitArg || process.env.COGNIS_DATABASE_URL || process.env.DATABASE_URL || envFileUrl;
+function readEnvFile() {
+  return fs.existsSync(envPath) ? fs.readFileSync(envPath, 'utf8') : '';
+}
 
-  if (!/^postgres(ql)?:\/\//.test(url) || isPlaceholderDatabaseUrl(url)) {
+function readEnvValue(envFile, key) {
+  const match = envFile.match(new RegExp(`^${key}=(?:"([^"]*)"|'([^']*)'|([^\\r\\n]*))`, 'm'));
+  return match ? (match[1] || match[2] || match[3] || '').trim() : '';
+}
+
+function resolveDatabaseUrls() {
+  const explicitArg = process.argv.slice(2).find((arg) => arg && !arg.startsWith('--'));
+  const explicitDirectArg = process.argv.slice(2).find((arg) => arg.startsWith('--direct-url='));
+  const envFile = readEnvFile();
+  const databaseUrl = explicitArg || process.env.COGNIS_DATABASE_URL || process.env.DATABASE_URL || readEnvValue(envFile, 'DATABASE_URL');
+  const directUrl = explicitDirectArg?.replace(/^--direct-url=/, '') || process.env.COGNIS_DIRECT_URL || process.env.DIRECT_URL || readEnvValue(envFile, 'DIRECT_URL') || databaseUrl;
+
+  if (!/^postgres(ql)?:\/\//.test(databaseUrl) || isPlaceholderDatabaseUrl(databaseUrl)) {
     fail([
       'Cognis needs a real PostgreSQL DATABASE_URL.',
       '',
       'Run one of these:',
-      '  npm run setup:db -- "postgresql://USER:PASSWORD@HOST:5432/DATABASE?sslmode=require"',
-      '  $env:COGNIS_DATABASE_URL="postgresql://USER:PASSWORD@HOST:5432/DATABASE?sslmode=require"; npm run setup:db',
+      '  npm run setup:db -- "postgresql://USER:PASSWORD@POOLER_HOST:6543/DATABASE?pgbouncer=true" --direct-url="postgresql://USER:PASSWORD@POOLER_HOST:5432/DATABASE"',
+      '  $env:COGNIS_DATABASE_URL="postgresql://USER:PASSWORD@POOLER_HOST:6543/DATABASE?pgbouncer=true"; $env:COGNIS_DIRECT_URL="postgresql://USER:PASSWORD@POOLER_HOST:5432/DATABASE"; npm run setup:db',
     ].join('\n'));
   }
 
-  return url;
+  if (!/^postgres(ql)?:\/\//.test(directUrl) || isPlaceholderDatabaseUrl(directUrl)) {
+    fail('Cognis needs a real PostgreSQL DIRECT_URL for Prisma migrations.');
+  }
+
+  return { databaseUrl, directUrl };
 }
 
-function writeEnv(databaseUrl) {
-  const existing = fs.existsSync(envPath) ? fs.readFileSync(envPath, 'utf8') : '';
-  const line = `DATABASE_URL="${databaseUrl.replace(/"/g, '\\"')}"`;
+function setEnvLine(contents, key, value) {
+  const line = `${key}="${value.replace(/"/g, '\\"')}"`;
+  return contents.match(new RegExp(`^${key}=.*$`, 'm'))
+    ? contents.replace(new RegExp(`^${key}=.*$`, 'm'), line)
+    : `${contents.replace(/\s*$/, '')}${contents.trim() ? '\n' : ''}${line}\n`;
+}
 
-  const next = existing.match(/^DATABASE_URL=.*$/m)
-    ? existing.replace(/^DATABASE_URL=.*$/m, line)
-    : `${existing.replace(/\s*$/, '')}${existing.trim() ? '\n' : ''}${line}\n`;
+function writeEnv({ databaseUrl, directUrl }) {
+  const existing = fs.existsSync(envPath) ? fs.readFileSync(envPath, 'utf8') : '';
+  const next = setEnvLine(setEnvLine(existing, 'DATABASE_URL', databaseUrl), 'DIRECT_URL', directUrl);
 
   fs.writeFileSync(envPath, next);
-  console.log('Updated .env DATABASE_URL.');
+  console.log('Updated .env database connection settings.');
 }
 
 function assertPostgresSchema() {
@@ -74,9 +92,9 @@ function run(command, args) {
   }
 }
 
-const databaseUrl = resolveDatabaseUrl();
+const databaseUrls = resolveDatabaseUrls();
 assertPostgresSchema();
-writeEnv(databaseUrl);
+writeEnv(databaseUrls);
 
 const prismaCli = path.join(root, 'node_modules', 'prisma', 'build', 'index.js');
 run(process.execPath, [prismaCli, 'generate']);

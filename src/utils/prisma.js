@@ -6,9 +6,10 @@ function isPlaceholderDatabaseUrl(url) {
   try {
     const parsed = new URL(url);
     const database = parsed.pathname.replace(/^\//, '');
-    return [parsed.username, parsed.password, parsed.hostname, database].some((part) =>
-      ['USER', 'PASSWORD', 'HOST', 'DATABASE'].includes(decodeURIComponent(part || '').toUpperCase())
-    );
+    return [parsed.username, parsed.password, parsed.hostname, database].some((part) => {
+      const normalized = decodeURIComponent(part || '').toUpperCase();
+      return ['USER', 'PASSWORD', 'HOST', 'POOLER_HOST', 'DATABASE'].includes(normalized) || normalized.includes('POOLER_HOST');
+    });
   } catch (error) {
     return false;
   }
