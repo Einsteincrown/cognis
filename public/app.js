@@ -4,6 +4,7 @@ const toast = document.querySelector('#toast');
 const response = document.querySelector('#response');
 const API_URL = '';
 const BINANCE_BACKEND_URL = API_URL;
+const LOCAL_WORKSPACE_KEY = 'cognis.workspace.v1';
 let toastTimer;
 let binanceRequestTimer;
 let activeAssessment = null;
@@ -12,6 +13,7 @@ let activeQuestionIndex = 0;
 let workspaceData = null;
 let currentIntakeStep = 1;
 let queueFilter = 'all';
+let localMode = false;
 
 let assessmentDomains = [];
 
@@ -27,10 +29,70 @@ function getVentureHue(name = '') {
   return 190 + (hash % 145);
 }
 
+function createLocalAssessment(venture) {
+  const assessmentId = `${venture.id}-assessment`;
+  const prompts = [
+    ['market', 'Market & distribution', 'What makes distribution durable once incentives normalize?'],
+    ['product', 'Product & mechanism', 'What is genuinely defensible relative to comparable ventures?'],
+    ['team', 'Team & execution', 'Why is this team positioned to execute this plan?'],
+  ];
+  const domains = prompts.map(([key, label, prompt], index) => ({
+    id: key,
+    key,
+    label,
+    status: index === 0 ? 'Needs evidence' : 'Not started',
+    blockerCount: index === 0 ? 1 : 0,
+    questions: [{
+      id: `${assessmentId}-${key}-1`,
+      prompt,
+      context: 'Record the evidence, assumptions, and open questions that support this diligence decision.',
+      state: index === 0 ? 'Needs evidence' : 'Suggested',
+      isApplicable: true,
+      isCompleted: false,
+      isBlocker: index === 0,
+      response: '',
+      evidence: [],
+    }],
+  }));
+  return { id: assessmentId, ventureId: venture.id, stage: venture.stage || 'Intake', signalState: 'Unclear', status: 'active', ownerDisplayName: 'Alex Morgan', committee: { at: null, status: null, condition: null }, progress: 0, checks: '0 of 3 checks', blockerCount: 1, committeeReady: false, remainingBlockers: [prompts[0][2]], totalApplicableQuestions: 3, completedApplicableQuestions: 0, domains };
+}
+
+function createLocalVenture(input) {
+  const venture = { id: `local-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`, name: input.name, category: input.category, description: input.description, website: input.website || null, isDemo: false, hasToken: Boolean(input.hasToken), tokenSymbol: input.tokenSymbol || null, tokenChainId: input.tokenChainId || null, tokenContractAddress: input.tokenContractAddress || null, stage: input.stage };
+  venture.assessment = createLocalAssessment(venture);
+  return venture;
+}
+
+function saveLocalWorkspace() {
+  window.localStorage.setItem(LOCAL_WORKSPACE_KEY, JSON.stringify(workspaceData));
+}
+
+function activateLocalWorkspace() {
+  localMode = true;
+  const saved = window.localStorage.getItem(LOCAL_WORKSPACE_KEY);
+  try { workspaceData = saved ? JSON.parse(saved) : null; } catch (error) { workspaceData = null; }
+  if (!workspaceData?.ventures?.length) {
+    workspaceData = { ventures: [
+      createLocalVenture({ name: 'Orbital', category: 'Perpetuals infrastructure', stage: 'Analysis', description: 'A demonstration venture for the local Cognis workspace.' }),
+      createLocalVenture({ name: 'Mosaic', category: 'Cross-chain identity', stage: 'Questioning', description: 'A demonstration venture for the local Cognis workspace.' }),
+    ], summary: {}, nextActions: [], committee: null };
+  }
+  workspaceData.summary = { activeAssessments: workspaceData.ventures.length, needsReview: workspaceData.ventures.length, staleEvidence: 0, committeeReady: 0 };
+  saveLocalWorkspace();
+  ventureAssessments = Object.fromEntries(workspaceData.ventures.map((venture) => [venture.id, { ...venture, assessmentId: venture.assessment.id, avatar: getVentureMonogram(venture.name), avatarHue: getVentureHue(venture.name), updated: 'Updated just now', progress: `${venture.assessment.progress}%`, checks: venture.assessment.checks, stage: venture.assessment.stage }]));
+  renderQueueFromWorkspace();
+}
+
 async function loadWorkspace() {
-  const workspaceResponse = await fetch(`${API_URL}/api/workspace`, { headers: { Accept: 'application/json' } });
-  if (!workspaceResponse.ok) throw new Error('Workspace load failed');
-  workspaceData = await workspaceResponse.json();
+  try {
+    const workspaceResponse = await fetch(`${API_URL}/api/workspace`, { headers: { Accept: 'application/json' } });
+    if (!workspaceResponse.ok) throw new Error('Workspace load failed');
+    workspaceData = await workspaceResponse.json();
+  } catch (error) {
+    activateLocalWorkspace();
+    showToast('Local workspace ready. Ventures persist in this browser.');
+    return;
+  }
   ventureAssessments = Object.fromEntries(workspaceData.ventures.map((venture) => [venture.id, {
     ...venture,
     assessmentId: venture.assessment?.id,
@@ -206,6 +268,14 @@ async function verifyIntakeToken() {
     return true;
   }
 
+  if (localMode) {
+    if (statusNode) {
+      statusNode.textContent = 'Local mode: token details will be saved with the venture.';
+      statusNode.className = 'verification-status pending';
+    }
+    return true;
+  }
+
   if (!symbol || !chainId || !contractAddress) {
     if (statusNode) {
       statusNode.textContent = 'Enter the token symbol, chain, and contract address before verifying.';
@@ -299,6 +369,16 @@ async function submitIntakeForm(event) {
       tokenContractAddress: hasToken ? tokenContractAddress : undefined,
     };
 
+    if (localMode) {
+      const venture = createLocalVenture(payload);
+      workspaceData.ventures.push(venture);
+      saveLocalWorkspace();
+      activateLocalWorkspace();
+      await openAssessment({ currentTarget: { dataset: { assessment: venture.id } } });
+      showToast('Venture created and saved in this browser.');
+      return;
+    }
+
     const response = await fetch(`${API_URL}/api/ventures`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -320,11 +400,15 @@ async function submitIntakeForm(event) {
     showToast('Venture created.');
     closeIntakeForm();
   } catch (error) {
-    if (errorNode) {
-      errorNode.textContent = error.message || 'Venture creation failed.';
-      errorNode.classList.add('show');
-    }
-    showToast(error.message || 'Venture creation failed.');
+    localMode = true;
+    const venture = createLocalVenture({ name, category, stage, description, website, hasToken, tokenSymbol, tokenChainId, tokenContractAddress });
+    workspaceData = workspaceData || { ventures: [], summary: {}, nextActions: [], committee: null };
+    workspaceData.ventures.push(venture);
+    saveLocalWorkspace();
+    activateLocalWorkspace();
+    await openAssessment({ currentTarget: { dataset: { assessment: venture.id } } });
+    showToast('Database unavailable. Venture saved in this browser.');
+    return;
   }
 }
 
@@ -466,9 +550,18 @@ async function openAssessment(event) {
   const assessmentId = item.dataset.assessment || item.dataset.openAssessment || 'orbital';
   const venture = ventureAssessments[assessmentId] || ventureAssessments.orbital;
   if (!venture?.assessmentId) return;
-  const assessmentResponse = await fetch(`${API_URL}/api/assessments/${venture.assessmentId}`);
-  if (!assessmentResponse.ok) return showToast('Assessment could not be loaded.');
-  const assessment = await assessmentResponse.json();
+  let assessment;
+  if (localMode) {
+    assessment = venture.assessment;
+  } else {
+    try {
+      const assessmentResponse = await fetch(`${API_URL}/api/assessments/${venture.assessmentId}`);
+      if (!assessmentResponse.ok) throw new Error('Assessment could not be loaded.');
+      assessment = await assessmentResponse.json();
+    } catch (error) {
+      return showToast('Assessment could not be loaded.');
+    }
+  }
   activeAssessment = { ...venture, ...assessment, domains: assessment.domains };
   assessmentDomains = assessment.domains.map((domain) => ({ ...domain, id: domain.key }));
   activeDomainId = 'market';
@@ -728,10 +821,17 @@ document.querySelector('#saveResponse').addEventListener('click', async () => {
     return;
   }
   const activeQuestion = getActiveQuestion();
-  const saveResult = await fetch(`${API_URL}/api/questions/${activeQuestion.id}/response`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ body: savedText }) });
-  if (!saveResult.ok) return showToast('Response could not be saved.');
+  if (!localMode) {
+    const saveResult = await fetch(`${API_URL}/api/questions/${activeQuestion.id}/response`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ body: savedText }) });
+    if (!saveResult.ok) return showToast('Response could not be saved.');
+  }
   activeQuestion.response = savedText;
   activeQuestion.state = 'Reviewed';
+  if (localMode) {
+    const localVentureRecord = workspaceData.ventures.find((venture) => venture.id === activeAssessment.ventureId);
+    if (localVentureRecord) localVentureRecord.assessment = activeAssessment;
+    saveLocalWorkspace();
+  }
   showToast('Response saved to the assessment trail.');
   renderAssessmentDetail();
 });
