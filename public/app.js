@@ -58,7 +58,7 @@ function createLocalAssessment(venture) {
 }
 
 function createLocalVenture(input) {
-  const venture = { id: `local-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`, name: input.name, category: input.category, description: input.description, website: input.website || null, isDemo: false, hasToken: Boolean(input.hasToken), tokenSymbol: input.tokenSymbol || null, tokenChainId: input.tokenChainId || null, tokenContractAddress: input.tokenContractAddress || null, stage: input.stage };
+  const venture = { id: input.id || `local-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`, name: input.name, category: input.category, description: input.description, website: input.website || null, isDemo: false, hasToken: Boolean(input.hasToken), tokenSymbol: input.tokenSymbol || null, tokenChainId: input.tokenChainId || null, tokenContractAddress: input.tokenContractAddress || null, stage: input.stage };
   venture.assessment = createLocalAssessment(venture);
   return venture;
 }
@@ -73,9 +73,21 @@ function activateLocalWorkspace() {
   try { workspaceData = saved ? JSON.parse(saved) : null; } catch (error) { workspaceData = null; }
   if (!workspaceData?.ventures?.length) {
     workspaceData = { ventures: [
-      createLocalVenture({ name: 'Orbital', category: 'Perpetuals infrastructure', stage: 'Analysis', description: 'A demonstration venture for the local Cognis workspace.' }),
-      createLocalVenture({ name: 'Mosaic', category: 'Cross-chain identity', stage: 'Questioning', description: 'A demonstration venture for the local Cognis workspace.' }),
+      createLocalVenture({ id: 'orbital', name: 'Orbital', category: 'Perpetuals infrastructure', stage: 'Analysis', description: 'A demonstration venture for the local Cognis workspace.' }),
+      createLocalVenture({ id: 'mosaic', name: 'Mosaic', category: 'Cross-chain identity', stage: 'Questioning', description: 'A demonstration venture for the local Cognis workspace.' }),
+      createLocalVenture({ id: 'tessera', name: 'Tessera', category: 'On-chain credit', stage: 'Committee ready', description: 'A demonstration venture for the local Cognis workspace.' }),
     ], summary: {}, nextActions: [], committee: null };
+  }
+  const shortcutIds = { Orbital: 'orbital', Mosaic: 'mosaic', Tessera: 'tessera' };
+  workspaceData.ventures.forEach((venture) => {
+    const stableId = shortcutIds[venture.name];
+    if (stableId && venture.id !== stableId) {
+      venture.id = stableId;
+      if (venture.assessment) venture.assessment.ventureId = stableId;
+    }
+  });
+  if (!workspaceData.ventures.some((venture) => venture.id === 'tessera')) {
+    workspaceData.ventures.push(createLocalVenture({ id: 'tessera', name: 'Tessera', category: 'On-chain credit', stage: 'Committee ready', description: 'A demonstration venture for the local Cognis workspace.' }));
   }
   workspaceData.summary = { activeAssessments: workspaceData.ventures.length, needsReview: workspaceData.ventures.length, staleEvidence: 0, committeeReady: 0 };
   saveLocalWorkspace();
@@ -90,7 +102,6 @@ async function loadWorkspace() {
     workspaceData = await workspaceResponse.json();
   } catch (error) {
     activateLocalWorkspace();
-    showToast('Local workspace ready. Ventures persist in this browser.');
     return;
   }
   ventureAssessments = Object.fromEntries(workspaceData.ventures.map((venture) => [venture.id, {
@@ -856,6 +867,8 @@ function showWorkspaceView(viewId) {
 document.querySelectorAll('.nav-item[data-view]').forEach((item) => {
   item.addEventListener('click', () => showWorkspaceView(item.dataset.view));
 });
+
+document.querySelectorAll('.footer-links a small').forEach((node) => node.remove());
 
 document.querySelectorAll('[data-action="new-assessment"]').forEach((item) => {
   item.addEventListener('click', openIntakeForm);
